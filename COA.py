@@ -29,7 +29,7 @@ class ToolBox:
         self.tools_dict = {}
 
     def store(self, functions_list):
-        """
+        """ 
         Stores the literal name and docstring of each function in the list.
         Parameters:
         functions_list (list): List of function objects to store.
