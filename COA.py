@@ -1,140 +1,143 @@
 import re
-import os
 import time
 import ollama
+import json
+import logging
+import textwrap
 from termcolor import colored
 from tools.time_keeper import TimeKeeper
-from agents.agents import AGENT_REBECCA
-from agents.agents import AGENT_JOHN
-from datetime import date
-from datetime import datetime
+#from agents.agents import AGENT_REBECCA, AGENT_JOHN
+from datetime import date, datetime
 import platform
+from typing import List, Dict, Optional
 
 # Constants
-USERNAME       = "Vampy"
-AGENT_PATH     = './agents/'
+USERNAME = "Vampy"
+AGENT_PATH = './agents/'
 DATA_CACHE_DIR = "agents"
-MODEL          = 'phi4'
-DEBUG=False
+MODEL = 'phi4'
+DEBUG = False
 
-def debug_print(message: str, enabled: bool = DEBUG) -> None:
-    """
-    Prints debug messages if debugging is enabled.
-    """
-    if enabled:
-        print(message)
+# Agent Data
+AGENT_REBECCA  = {
+    "agent_id"   : "",
+    "first_name" : "Rebecca",
+    "last_name"  : "",
+    "nick_name"  : "Becky",
+    "handle"     : "Becca",
+    "sex"        : "female",
+    "age"        : "25",
+    "hair"       : "Light green with twin tails",
+    "country"    : "Austrlia",
+    "city"       : "Sydney",
+    "e-mail"     : "",
+    "friends"    : [],
+    "tools"      : ["search", "LLMVersion"],
+    "personality": "Sharp-tongued, crass, violent, unpredictable, loyal, confident, street-smart, risqué, short-tempered, foul-mouthed, mischievous, cheeky.",
+    "description": "Rebecca is a humanoid female cyborg with soft features and stark green skin with pink tattoos.",
+    "mission"    :     "Find the latest versions of AI tools and assist the user.",
+    "data"       : {},
+    "create_date": ""
+}
+
+logging.basicConfig(level=logging.DEBUG)  # Change to INFO or WARNING in production
+logger = logging.getLogger(__name__)
+logger.debug("Your debug message")
 
 class ToolBox:
     def __init__(self):
-        self.tools_dict = {}
+        self.tools_dict: Dict[str, Optional[str]] = {}
 
-    def store(self, functions_list):
-        """
+    def store(self, functions_list: List[callable]) -> Dict[str, Optional[str]]:
+        """ 
         Stores the literal name and docstring of each function in the list.
         Parameters:
         functions_list (list): List of function objects to store.
-
-        Returns:
-        dict: Dictionary with function names as keys and their docstrings as values.
+        Returns: dict: Dictionary with function names as keys and their docstrings as values.
         """
-
         for func in functions_list:
             self.tools_dict[func.__name__] = func.__doc__
         return self.tools_dict
 
     def tools(self):
         """
-        Returns the dictionary created in store as a text string.
-
-        Returns:
-        str: Dictionary of stored functions and their docstrings as a text string.
+        Parameters: None
+        Returns: str: Dictionary of stored functions and their docstrings as a text string.
+        Returns: Dictionary created in store as a text string.
         """
 
         tools_str = ""
         for name, doc in self.tools_dict.items():
             tools_str += f"{name}: \"{doc}\"\n"
-            #print(f"ToolBox:tools_str: {tools_str}")
+            logger.debug(f"ToolBox:tools_str: {tools_str}")
         return tools_str.strip()
 
 # Agent Class
 class Agent:
-    def __init__(self,agent,username,model,tools,temperature=0.7):
-        self.first_name  = agent["first_name"]
-        self.last_name   = agent["last_name"]
-        self.sex         = agent["sex"]
-        self.age         = agent["age"]
-        self.model       = model
+    def __init__(self, agent: dict, username: str, model: str, tools: List[callable], temperature: float = 0.7):
+        self.first_name = agent["first_name"]
+        self.last_name = agent["last_name"]
+        self.sex = agent["sex"]
+        self.age = agent["age"]
+        self.model = model
         self.personality = agent["personality"]
         self.description = agent["description"]
         self.temperature = temperature
-        self.username    = username
-        self.country     = agent["country"]
-        self.city        = agent["city"]
+        self.username = username
+        self.country = agent["country"]
+        self.city = agent["city"]
         self.conversation_history = ""
         self.system_prompt = f"You are a cyberpunk edgerunner and helpful assistant. Your name is {self.first_name}.\n You are {self.age} years old. {self.description}."
-        self.user_prompt   = f"Introduce yourself to {self.username}. Keep it short and describe how you can assist."
-        self.tools=tools
-        self.intro=True
-        self.operating_system=platform.system()
+        self.user_prompt = f"Introduce yourself to {self.username}. Keep it short and describe how you can assist."
+        self.tools = tools
+        self.intro = True
+        self.operating_system = platform.system()
         self.tool_descriptions = self.prepare_agent_tools()
 
     def prepare_agent_tools(self) -> str:
         """
         Stores the tools in the toolbox and returns their descriptions.
         Parameters: None
-        Returns:
-            str: Descriptions of the tools stored in the toolbox.
+        Returns: str: Descriptions of the tools stored in the toolbox.
         """
         toolbox = ToolBox()
         toolbox.store(self.tools)
-        debug_print(f"Prepare_agent_tools {toolbox.tools()}")
+        logger.debug(f"Prepare_agent_tools {toolbox.tools()}")
         return toolbox.tools()
 
-    def choose_agent_tools(self,agent_response):
-            """
-            Extract the tool_choice from the agent's response using regex
-            Parameters: None
-            Returns: 
-            """
-            debug_print(f"choose_agent_tools: Agent respose: {agent_response['message']['content']}")
-            match = re.search(r'"tool_choice":\s*"([^"]+)"', agent_response['message']['content'])
-            if not match:
-                debug_print("No tool_choice found.")
+    def choose_agent_tools(self, agent_response):
+        logger.debug(f"choose_agent_tools: Agent response: {agent_response['message']['content']}")
+        match = re.search(r"```json\s*(\{.*\})\s*```", f"{agent_response['message']['content']}",re.DOTALL)
+        if match:
+            json_str = match.group(1)
+            try:
+                response_data = json.loads(json_str)
+            except json.JSONDecodeError:
+                logger.debug("Failed to parse JSON from agent response.")
                 return None
-
-            tool_choice = match.group(1)
-            #print(f"choose_agent_tools: Tool choice: {tool_choice}")
-                
-            # Extract tool_input if available
-            tool_input_match = re.search(r'"tool_input":\s*"([^"]*)"', agent_response['message']['content'])
-                #print(f"choose_agent_tools: tool_input_match {tool_input_match}")
-            tool_input = tool_input_match.group(1) if tool_input_match else None
-            #print(f"tool_input:::{tool_input}")
-            #print(f"choose_agent_tools: tool_input {tool_input}")
-            # Iterate through the tools and execute the corresponding tool
-            
+        
+            tool_choice = response_data.get("tool_choice")
+            tool_input = response_data.get("tool_input")
+    
             for tool in self.tools:
                 if tool.__name__ == tool_choice:
+                    logger.debug(f"Tool Chosen is : {tool_choice}")
+                    logger.debug(f"Tool input is: {tool_input}")
                     return tool(tool_input) if tool_input else tool()
-                        #print(colored(response,'cyan'))
-            debug_print(f"No {tool_choice} found")
-            return None
-
+            logger.debug(f"No tool found matching: {tool_choice}")
+        else:
+            logger.debug("No valid JSON found.")
+        return None
+            
     def generate_prompt(self):
         """
         Generates the prompt template for the agent.
         """
 
         prompt=[
-            {
-                'role': 'system',
-                'content': self.system_prompt,
-            },
-            {
-                'role': 'user',
-                'content': self.user_prompt,
-            },
-             ],
+            {'role': 'system','content': self.system_prompt},
+            {'role': 'user','content': self.user_prompt},
+        ]
         options = {'temperature': 0}
         return prompt
 
@@ -148,18 +151,17 @@ class Agent:
         day_of_week = datetime.now().strftime('%A')
         date_today = date.today()
         
-        self.system_prompt = f"""
+        self.system_prompt = textwrap.dedent(f"""
         Your name is {self.first_name}.
         You are {self.age} years old, {self.sex}, and currently live in {self.city}, {self.country}.
         {self.description}.
+        You always think step by step and talk in character.
         You are a cyberpunk edgerunner and a helpful assistant with access to a toolbox as part of your cyberdeck.
         If you don't know the answer to a user's question, you will use an available tool from your cyberdeck. Otherwise, ask the user for more information.
         Given a user query, you will determine which tool, if any, is best suited to answer the query.
-        You will generate the following JSON response:
-        {{
-            "tool_choice": "name_of_the_tool",
-            "tool_input": "inputs_to_the_tool"
-        }}
+        When responding, please provide only a JSON object in your response with no additional text."
+        {{"tool_choice": "name_of_the_tool","tool_input": "inputs_to_the_tool"}}
+
         - `tool_choice`: The name of the tool you want to use. It must be a tool from your toolbox
                         or "no tool" if you do not need to use a tool.
         - `tool_input`: The specific inputs required for the selected tool.
@@ -171,48 +173,14 @@ class Agent:
         Your cyberdeck operates on {self.operating_system}, enabling you to assist the user effectively.
         
         Today is {day_of_week}, {date_today}.
-        You always think step by step and talk in character.
+
+        
         You will always read the conversation history below and remember the details so you can respond to the user with accurate information.
-        
-        Below is the conversation history between {self.username} and {self.first_name}:
-        <BEGIN HISTORY>
+        The conversation history between {self.username} and {self.first_name} is below:
+        <History>
         {self.conversation_history}
-        <END HISTORY>
-        """
-
-    def update_system_prompt1(self) -> None:
-        """
-        Updates the system prompt with the description of the agent and included the conversation history.
-        Returns:
-        None:
-        """
-
-        dayofweek=datetime.now().strftime('%A')
-        date_today = date.today()
-        self.system_prompt=f"""
-        Your name is {self.first_name}.
-        You are {self.age} years old, {self.sex} and currently live in {self.city} {self.country}.
-        {self.description}.
-        You are a cyberpunk edgerunner and helpful assistant with access to a toolbox as part of your cyberdeck.
-        If you don't know the answer to a user's question, you will use an available tool from your cyberdeck, otherwise ask the user for more information.
-        Given a user query, you will determine which tool, if any, is best suited to answer the query.
-        You will generate the following JSON response:
-        "tool_choice":"name_of_the_tool","tool_input":"inputs_to_the_tool"
-        -`tool_choice`: The name of the tool you want to use. It must be a tool from your toolbox
-                   or "no tool" if you do not need to use a tool.
-        -`tool_input`: The specific inputs required for the selected tool.
-                If no tool, just provide a response to the query.
-        This is the list of your tools along with their descriptions: {self.tool_descriptions}
-        
-        Please make a decision based on the provided user query and the available tools.
-        Your cyberdesk has {self.operating_system} as its operating system, it allows you to help the user.
-        
-        Today is {dayofweek} {date_today}
-        You always think think Step by Step and talk in character.
-        You will always read the conversation history below and remember the details so you can respond to the user with correct information.
-        Use the conversation history below between the BEGINBelow is the coversation converation history between {self.username} and {self.first_name}.
-        <BEGIN HISTORY>\n{self.conversation_history}\n<END HISTORY>
-        """
+        </History>
+        """)
 
     def display_system_prompt(self) -> None:
         """
@@ -226,7 +194,7 @@ class Agent:
         """
         print(len(self.system_prompt))
         
-    def agent_response(self, model):
+    def agent_response(self, model: str) -> dict:
         """
         Generates the agent response using the specified model.
         """
@@ -238,11 +206,8 @@ class Agent:
             ],
             options={'temperature': self.temperature}
         )
-
-    def respond(self,message):
-        """
-        Generates the response from the agent.
-        """
+    
+    def respond(self, message: str) -> None:
         """
         Processes the user message and generates a response.
         """
@@ -261,7 +226,7 @@ class Agent:
         print(colored(f"<{self.first_name}>: {response['message']['content']}", 'blue'))
         self.conversation_history += f"\n<{self.username}>   : {message} \n<AI Agent>: {response['message']['content']}"
         self.update_system_prompt()
-
+        
 
     def show_message_history(self) -> None:
         """
@@ -345,7 +310,7 @@ def commands() -> None:
                 agent1 = Agent(AGENT_REBECCA,USERNAME,MODEL,tools)
                 agents.add_agent(agent1)
             elif command == "!agent load 2":
-                agent2 = Agent(AGENT_JOHN,USERNAME,tools)
+                agent2 = Agent(AGENT_JOHN,USERNAME,MODEL,tools)
                 agents.add_agent(agent2)
             elif command == "!agent details 1" and agent1:
                 agent1.show_agent_details()
