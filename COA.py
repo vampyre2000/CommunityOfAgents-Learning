@@ -24,7 +24,7 @@ USERNAME = "Vampy"
 AGENT_PATH = './agents/'
 DATA_CACHE_DIR = "agents"
 MODEL = 'phi4'
-DEBUG = 'INFO'
+DEBUG = 'Truck'
 
 # Parameters for the Rebecca Agent personality
 AGENT_REBECCA  = {
