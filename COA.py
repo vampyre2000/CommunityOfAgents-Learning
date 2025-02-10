@@ -1,3 +1,12 @@
+# The Community of Agents (COA) is a program that allows users to interact with multiple AI agents in a community.
+# The program provides a command-line interface for users to load, interact with, and manage multiple AI agents. 
+# The agents are designed to assist users with various tasks, such as answering questions, providing information, and performing specific functions.
+# The COA program allows users to load different agents, view agent details, interact with agents, and switch between agents in the community.
+# The program also provides a help menu with a list of available commands and options for users to navigate the system.
+# The COA program is designed to be extensible, allowing users to add new agents with different capabilities and functions.
+# Author: Vampy
+# Version: 1.0
+
 import re
 import time
 import ollama
@@ -6,21 +15,20 @@ import logging
 import textwrap
 from termcolor import colored
 from tools.time_keeper import TimeKeeper
-#from agents.agents import AGENT_REBECCA, AGENT_JOHN
 from datetime import date, datetime
 import platform
 from typing import List, Dict, Optional
 
-# Constants
+# Set the constants for the program
 USERNAME = "Vampy"
 AGENT_PATH = './agents/'
 DATA_CACHE_DIR = "agents"
 MODEL = 'phi4'
-DEBUG = False
+DEBUG = 'INFO'
 
-# Agent Data
+# Parameters for the Rebecca Agent personality
 AGENT_REBECCA  = {
-    "agent_id"   : "",
+    "agent_id"   : "00001",
     "first_name" : "Rebecca",
     "last_name"  : "",
     "nick_name"  : "Becky",
@@ -28,17 +36,18 @@ AGENT_REBECCA  = {
     "sex"        : "female",
     "age"        : "25",
     "hair"       : "Light green with twin tails",
-    "country"    : "Austrlia",
+    "country"    : "Australia",
     "city"       : "Sydney",
     "e-mail"     : "",
     "friends"    : [],
     "tools"      : ["search", "LLMVersion"],
     "personality": "Sharp-tongued, crass, violent, unpredictable, loyal, confident, street-smart, risqué, short-tempered, foul-mouthed, mischievous, cheeky.",
-    "description": "Rebecca is a humanoid female cyborg with soft features and stark green skin with pink tattoos.",
-    "mission"    :     "Find the latest versions of AI tools and assist the user.",
+    "description": "Rebecca is a humanoid female cyborg with soft features and stark green skin with pink tattoos. She is a solo Mercenary for hire.",
+    "mission"    : "Find the latest versions of AI tools and assist the user.",
     "data"       : {},
     "create_date": ""
 }
+
 
 logging.basicConfig(level=logging.DEBUG)  # Change to INFO or WARNING in production
 logger = logging.getLogger(__name__)
@@ -59,7 +68,7 @@ class ToolBox:
             self.tools_dict[func.__name__] = func.__doc__
         return self.tools_dict
 
-    def tools(self):
+    def tools(self) -> str:
         """
         Parameters: None
         Returns: str: Dictionary of stored functions and their docstrings as a text string.
@@ -82,13 +91,16 @@ class Agent:
         self.model = model
         self.personality = agent["personality"]
         self.description = agent["description"]
+        self.mission=agent["mission"]
         self.temperature = temperature
         self.username = username
         self.country = agent["country"]
         self.city = agent["city"]
         self.conversation_history = ""
         self.system_prompt = f"You are a cyberpunk edgerunner and helpful assistant. Your name is {self.first_name}.\n You are {self.age} years old. {self.description}."
-        self.user_prompt = f"Introduce yourself to {self.username}. Keep it short and describe how you can assist."
+        self.introduction = f"Introduce yourself to {self.username}. Keep it short and describe how you can assist."
+        self.intro_given = False
+        self.agent_id = agent["agent_id"]
         self.tools = tools
         self.intro = True
         self.operating_system = platform.system()
@@ -106,29 +118,38 @@ class Agent:
         return toolbox.tools()
 
     def choose_agent_tools(self, agent_response):
-        logger.debug(f"choose_agent_tools: Agent response: {agent_response['message']['content']}")
-        match = re.search(r"```json\s*(\{.*\})\s*```", f"{agent_response['message']['content']}",re.DOTALL)
+        message = agent_response['message']['content']
+        logger.debug(f"choose_agent_tools: Agent response: {message}")
+        match = re.search(r"```json\s*(\{.*\})\s*```", f"{message}",re.DOTALL)
         if match:
             json_str = match.group(1)
             try:
                 response_data = json.loads(json_str)
             except json.JSONDecodeError:
                 logger.debug("Failed to parse JSON from agent response.")
-                return None
+                return message # Return the plain text response if JSON parsing fails
         
             tool_choice = response_data.get("tool_choice")
             tool_input = response_data.get("tool_input")
-    
-            for tool in self.tools:
-                if tool.__name__ == tool_choice:
-                    logger.debug(f"Tool Chosen is : {tool_choice}")
-                    logger.debug(f"Tool input is: {tool_input}")
-                    return tool(tool_input) if tool_input else tool()
-            logger.debug(f"No tool found matching: {tool_choice}")
+            agent_response = response_data.get("agent_response")
+            logger.debug(f"tool_choice: {tool_choice} tool_input: {tool_input} agent_reponse: {agent_response}")
+            if tool_choice == "no tool":
+                response_data= {"tool_choice": tool_choice, "tool_input": tool_input, "agent_response": agent_response}
+                return response_data
+            else:
+                
+                for tool in self.tools:
+                    if tool.__name__ == tool_choice:
+                        logger.debug(f"tool_choice is: {tool_choice}")
+                        logger.debug(f"tool_input is: {tool_input}")
+                        tool_output = tool(tool_input) if tool_input else tool()
+                        logger.debug(f"tool_ouput is: {tool_output}")
+                        response_data= {"tool_choice": tool_choice, "tool_input": tool_input, "tool_output": tool_output,"agent_response":""}
+                        return response_data
         else:
             logger.debug("No valid JSON found.")
-        return None
-            
+            return message # Return the plain text response if no JSON is found
+
     def generate_prompt(self):
         """
         Generates the prompt template for the agent.
@@ -140,7 +161,7 @@ class Agent:
         ]
         options = {'temperature': 0}
         return prompt
-
+    
     def update_system_prompt(self) -> None:
         """
         Updates the system prompt with the description of the agent and includes the conversation history.
@@ -155,17 +176,22 @@ class Agent:
         Your name is {self.first_name}.
         You are {self.age} years old, {self.sex}, and currently live in {self.city}, {self.country}.
         {self.description}.
-        You always think step by step and talk in character.
         You are a cyberpunk edgerunner and a helpful assistant with access to a toolbox as part of your cyberdeck.
+        Your personality is {self.personality}.
+        You always think step by step and talk in character. Be sharp-tongued, confident, and a bit cheeky in your responses.
         If you don't know the answer to a user's question, you will use an available tool from your cyberdeck. Otherwise, ask the user for more information.
         Given a user query, you will determine which tool, if any, is best suited to answer the query.
-        When responding, please provide only a JSON object in your response with no additional text."
-        {{"tool_choice": "name_of_the_tool","tool_input": "inputs_to_the_tool"}}
+        When responding, please provide a JSON object in your response with the following structure:
+        {{
+            "tool_choice": "name_of_the_tool",
+            "tool_input": "inputs_to_the_tool",
+            "agent_response": "The response to the user"
+        }}
 
         - `tool_choice`: The name of the tool you want to use. It must be a tool from your toolbox
                         or "no tool" if you do not need to use a tool.
-        - `tool_input`: The specific inputs required for the selected tool.
-                        If no tool is used, just provide a direct response to the query.
+        - `tool_input`: The specific inputs required for the selected tool. If there are no inputs required set to null
+        - `agent_response` : If no tool is used, just provide a direct response to the query.
         
         This is the list of your tools along with their descriptions: {self.tool_descriptions}
         
@@ -174,12 +200,12 @@ class Agent:
         
         Today is {day_of_week}, {date_today}.
 
-        
         You will always read the conversation history below and remember the details so you can respond to the user with accurate information.
         The conversation history between {self.username} and {self.first_name} is below:
-        <History>
+        <history>
         {self.conversation_history}
-        </History>
+        </history>
+        
         """)
 
     def display_system_prompt(self) -> None:
@@ -193,6 +219,12 @@ class Agent:
         Prints the size of the system prompt.
         """
         print(len(self.system_prompt))
+
+    def display_tool_descriptions(self) -> None:
+        """
+        Displays the descriptions of the tools available to the agent.
+        """
+        print(self.tool_descriptions)
         
     def agent_response(self, model: str) -> dict:
         """
@@ -206,27 +238,57 @@ class Agent:
             ],
             options={'temperature': self.temperature}
         )
-    
-    def respond(self, message: str) -> None:
+        
+    def respond(self, user_input: str) -> None:
         """
         Processes the user message and generates a response.
         """
-        self.update_system_prompt()
-        if not message:
-            return
-
-        self.user_prompt = message
-        response = self.agent_response(self.model)
-        tool_response = self.choose_agent_tools(response)
-        if tool_response:
-            self.conversation_history += f"\n<{self.username}>   : {message} \n<AI Agent>: {tool_response}"
-            self.update_system_prompt()
-            response = self.agent_response(self.model)
-
-        print(colored(f"<{self.first_name}>: {response['message']['content']}", 'blue'))
-        self.conversation_history += f"\n<{self.username}>   : {message} \n<AI Agent>: {response['message']['content']}"
-        self.update_system_prompt()
         
+        
+        if self.intro_given == False: # Check if the introduction has been given
+            self.user_prompt = self.introduction
+            self.update_system_prompt()
+            self.intro_given = True
+            response = self.agent_response(self.model)
+            print(colored(f"<{self.first_name}>: {self.extract_json(response,"agent_response")}", 'green'))
+        else:
+            if not user_input: # Check if the user input is empty
+                logger.debug(f"No resonse found from user input")
+                return
+            else:
+                self.update_system_prompt() 
+                self.user_prompt = user_input
+                response = self.agent_response(self.model)
+                tool_response = self.choose_agent_tools(response) # Check if a tool is available
+                logger.debug(f"Tool response  {tool_response}")
+                if tool_response['tool_choice']== "no tool":  #If no tool is available just return the agent response
+                    print(colored(f"<{self.first_name}>: {tool_response['agent_response']}", 'green'))
+                    self.conversation_history += f"\n<{self.username}>   : {user_input} \n<AI Agent>: {tool_response['agent_response']}" # Update the conversation history
+                    self.update_system_prompt()
+                else: # If a tool is available, return the tool response. The tool response is a JSON object with the tool choice, tool input and agent response
+                    print(colored(f"<{self.first_name}>: {tool_response['tool_choice']}:{tool_response['tool_output']}", 'red'))
+                    self.user_prompt = f"I have used the {tool_response['tool_choice']} tool and the output of the tool is {tool_response['tool_output']}. Please respond to the user with this information."
+                    self.update_system_prompt()
+                    response = self.agent_response(self.model)
+                    print(colored(f"<{self.first_name}>: {self.extract_json(response,"agent_response")}", 'green'))
+                    self.conversation_history += f"\n<{self.username}>   : {user_input} \n<AI Agent>: {tool_response['agent_response']}"
+                    self.update_system_prompt()
+        
+    def extract_json(self, response: str,response_type) -> str:
+        """
+        Extracts the JSON object from the response and returns the content.
+        """
+        message = response['message']['content']
+        match = re.search(r"```json\s*(\{.*\})\s*```", message, re.DOTALL)
+        if  match:
+            json_str = match.group(1)
+            try:
+                response_data = json.loads(json_str)
+                agent_message = response_data.get("agent_response", "")
+                #print(colored(f"<{self.first_name}>: {agent_message}", 'blue'))
+                return agent_message
+            except  json.JSONDecodeError:
+                print(colored(f"Failed to parse JSON from agent response.", 'red'))
 
     def show_message_history(self) -> None:
         """
@@ -296,6 +358,9 @@ def commands() -> None:
     agent1 = agent2 = None
     loop = True
     tools=[TimeKeeper] 
+    agent1 = Agent(AGENT_REBECCA,USERNAME,MODEL,tools)
+    agents.add_agent(agent1)
+    agent1.respond("")
 
     while loop:
         command = input("#> ")
