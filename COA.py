@@ -15,6 +15,7 @@ import logging
 import textwrap
 from termcolor import colored
 from tools.time_keeper import TimeKeeper
+from tools.LLMVersionCheck import get_disruption_date
 from datetime import date, datetime
 import platform
 from typing import List, Dict, Optional
@@ -24,7 +25,6 @@ USERNAME = "Vampy"
 AGENT_PATH = './agents/'
 DATA_CACHE_DIR = "agents"
 MODEL = 'phi4'
-DEBUG = 'INFO'
 
 # Parameters for the Rebecca Agent personality
 AGENT_REBECCA  = {
@@ -48,10 +48,8 @@ AGENT_REBECCA  = {
     "create_date": ""
 }
 
-
 logging.basicConfig(level=logging.DEBUG)  # Change to INFO or WARNING in production
 logger = logging.getLogger(__name__)
-logger.debug("Your debug message")
 
 class ToolBox:
     def __init__(self):
@@ -212,7 +210,7 @@ class Agent:
         """
         Displays the current system prompt.
         """
-        print(self.system_prompt)
+        print(colored(self.system_prompt, 'blue'))
 
     def system_prompt_size(self) -> None:
         """
@@ -224,7 +222,7 @@ class Agent:
         """
         Displays the descriptions of the tools available to the agent.
         """
-        print(self.tool_descriptions)
+        print(colored(self.tool_descriptions, 'blue'))
         
     def agent_response(self, model: str) -> dict:
         """
@@ -238,19 +236,26 @@ class Agent:
             ],
             options={'temperature': self.temperature}
         )
+    
+    def update_history(self, user_input,agent_response) -> None:
+        """
+        Updates the conversation history
+        """
+        self.conversation_history += f"\n<{self.username}>   : {user_input} \n<AI Agent>: {agent_response}" # Update the conversation history
         
     def respond(self, user_input: str) -> None:
         """
         Processes the user message and generates a response.
         """
         
-        
         if self.intro_given == False: # Check if the introduction has been given
             self.user_prompt = self.introduction
             self.update_system_prompt()
             self.intro_given = True
-            response = self.agent_response(self.model)
-            print(colored(f"<{self.first_name}>: {self.extract_json(response,"agent_response")}", 'green'))
+            agent_response = self.extract_json(self.agent_response(self.model),'agent_response')
+            print(colored(f"<{self.first_name}>: {agent_response}", 'green'))
+            self.update_history(user_input,agent_response)
+            self.update_system_prompt()
         else:
             if not user_input: # Check if the user input is empty
                 logger.debug(f"No resonse found from user input")
@@ -263,15 +268,15 @@ class Agent:
                 logger.debug(f"Tool response  {tool_response}")
                 if tool_response['tool_choice']== "no tool":  #If no tool is available just return the agent response
                     print(colored(f"<{self.first_name}>: {tool_response['agent_response']}", 'green'))
-                    self.conversation_history += f"\n<{self.username}>   : {user_input} \n<AI Agent>: {tool_response['agent_response']}" # Update the conversation history
+                    self.update_history(user_input,tool_response)
                     self.update_system_prompt()
                 else: # If a tool is available, return the tool response. The tool response is a JSON object with the tool choice, tool input and agent response
                     print(colored(f"<{self.first_name}>: {tool_response['tool_choice']}:{tool_response['tool_output']}", 'red'))
                     self.user_prompt = f"I have used the {tool_response['tool_choice']} tool and the output of the tool is {tool_response['tool_output']}. Please respond to the user with this information."
                     self.update_system_prompt()
                     response = self.agent_response(self.model)
-                    print(colored(f"<{self.first_name}>: {self.extract_json(response,"agent_response")}", 'green'))
-                    self.conversation_history += f"\n<{self.username}>   : {user_input} \n<AI Agent>: {tool_response['agent_response']}"
+                    print(colored(f"<{self.first_name}>: {self.extract_json(response,'agent_response')}", 'green'))
+                    self.update_history(user_input,tool_response)
                     self.update_system_prompt()
         
     def extract_json(self, response: str,response_type) -> str:
@@ -285,7 +290,6 @@ class Agent:
             try:
                 response_data = json.loads(json_str)
                 agent_message = response_data.get("agent_response", "")
-                #print(colored(f"<{self.first_name}>: {agent_message}", 'blue'))
                 return agent_message
             except  json.JSONDecodeError:
                 print(colored(f"Failed to parse JSON from agent response.", 'red'))
@@ -294,7 +298,7 @@ class Agent:
         """
         Displays the message history between the user and the agent.
         """
-        print(colored(self.conversation_history, 'green'))
+        print(colored(self.conversation_history, 'blue'))
 
     def show_agent_details(self) -> None:
         """
@@ -311,7 +315,7 @@ class Agent:
             f"Temperature:     {self.temperature}",
             f"Tools available: {self.tools}"
         ]
-        print("\n".join(details))
+        print(colored("\n".join(details)), 'blue')
 
 # Community of Agents Class
 class CommunityOfAgents:
@@ -357,7 +361,7 @@ def commands() -> None:
     agents = CommunityOfAgents()
     agent1 = agent2 = None
     loop = True
-    tools=[TimeKeeper] 
+    tools=[TimeKeeper,get_disruption_date] 
     agent1 = Agent(AGENT_REBECCA,USERNAME,MODEL,tools)
     agents.add_agent(agent1)
     agent1.respond("")

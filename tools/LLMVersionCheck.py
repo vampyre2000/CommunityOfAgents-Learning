@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 GLOBAL_DISRUPTION = datetime.date(2027,9,30)
 AGI_DATE          = datetime.date(2029,10,30)
 #Set the date to when we believe that the singularity will happen.
-SINGULARITY_DATE  = datetime.date(2030,9,30)
+SINGULARITY_DATE  = datetime.date(2035,9,30)
 #Set the list of software versions that we want to check for
 Software_versions={
                 "LlamaCPP"     :"https://github.com/ggerganov/llama.cpp/releases/latest",
@@ -28,7 +28,7 @@ today = datetime.date.today()
 def check_version(PROGRAM,URL):
     """
     Allows the AI agent to find the current versions of common LLM front/backends.
-    Parameters: NONE
+    Parameters: None
     Returns: 
         str: The current formatted time.
     """
@@ -50,14 +50,21 @@ def check_version(PROGRAM,URL):
     else:
         print(f"Failed to fetch the webpage for {PROGRAM}")
 
-days_until_disruption= (GLOBAL_DISRUPTION - today)
-days_until_AGI=        (AGI_DATE - today)
-days_until_singularity=(SINGULARITY_DATE - today)
+def get_disruption_date() -> str:
+    """
+    Allows the AI agent to find the dates of import AI things
+    Parameters: None
+    Returns: String
 
-print(f" Today's date is the " + today.strftime("%Y-%m-%d"))
-print(f" Global disruption date: {GLOBAL_DISRUPTION}    Days until global disruption {days_until_disruption}  ")
-print(f" AGI date              : {AGI_DATE}    Days until AGI               {days_until_AGI}")
-print(f" Singularity date      : {SINGULARITY_DATE}    Days until the singularity   {days_until_singularity}")
-print(f"")
-for key in Software_versions:
-   check_version(key,Software_versions[key])    
+    """
+    disruption_days= (GLOBAL_DISRUPTION - today)
+    AGI_days=        (AGI_DATE - today)
+    singularity_days=(SINGULARITY_DATE - today)
+    return (f"Today's date is the {today.strftime('%Y-%m-%d')}\n"
+            f"Global disruption date: {GLOBAL_DISRUPTION} Days until global disruption: {disruption_days.days}\n"
+            f"AGI date: {AGI_DATE} Days until AGI: {AGI_days.days}\n"
+            f"Singularity date: {SINGULARITY_DATE} Days until the singularity: {singularity_days.days}")
+
+#get_disruption_date()
+#for key in Software_versions:
+#   check_version(key,Software_versions[key])    
