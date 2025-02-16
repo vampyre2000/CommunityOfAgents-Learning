@@ -15,7 +15,7 @@ import logging
 import textwrap
 from termcolor import colored
 from tools.time_keeper import TimeKeeper
-from tools.LLMVersionCheck import get_disruption_date
+from tools.LLMVersionCheck import get_disruption_date,get_llm_versions
 from datetime import date, datetime
 import platform
 from typing import List, Dict, Optional
@@ -40,7 +40,6 @@ AGENT_REBECCA  = {
     "city"       : "Sydney",
     "e-mail"     : "",
     "friends"    : [],
-    "tools"      : ["search", "LLMVersion"],
     "personality": "Sharp-tongued, crass, violent, unpredictable, loyal, confident, street-smart, risqué, short-tempered, foul-mouthed, mischievous, cheeky.",
     "description": "Rebecca is a humanoid female cyborg with soft features and stark green skin with pink tattoos. She is a solo Mercenary for hire.",
     "mission"    : "Find the latest versions of AI tools and assist the user.",
@@ -125,7 +124,7 @@ class Agent:
                 response_data = json.loads(json_str)
             except json.JSONDecodeError:
                 logger.debug("Failed to parse JSON from agent response.")
-                return message # Return the plain text response if JSON parsing fails
+                return {"tool_choice": "no tool", "tool_input": None, "agent_response": message}  # Return a dictionary if JSON parsing fails
         
             tool_choice = response_data.get("tool_choice")
             tool_input = response_data.get("tool_input")
@@ -134,8 +133,7 @@ class Agent:
             if tool_choice == "no tool":
                 response_data= {"tool_choice": tool_choice, "tool_input": tool_input, "agent_response": agent_response}
                 return response_data
-            else:
-                
+            else:   
                 for tool in self.tools:
                     if tool.__name__ == tool_choice:
                         logger.debug(f"tool_choice is: {tool_choice}")
@@ -146,7 +144,7 @@ class Agent:
                         return response_data
         else:
             logger.debug("No valid JSON found.")
-            return message # Return the plain text response if no JSON is found
+            return {"tool_choice": "no tool", "tool_input": None, "agent_response": message}  # Return a dictionary if no valid JSON is found
 
     def generate_prompt(self):
         """
@@ -275,6 +273,7 @@ class Agent:
                     self.user_prompt = f"I have used the {tool_response['tool_choice']} tool and the output of the tool is {tool_response['tool_output']}. Please respond to the user with this information."
                     self.update_system_prompt()
                     response = self.agent_response(self.model)
+                    agent_response = self.extract_json(response, 'agent_response')
                     print(colored(f"<{self.first_name}>: {self.extract_json(response,'agent_response')}", 'green'))
                     self.update_history(user_input,tool_response)
                     self.update_system_prompt()
@@ -343,13 +342,14 @@ def display_help() -> None:
     Displays the available commands for the user.
     """
     commands_list = [
-        "!agent list            : List all available agents",
-        "!agent load <1|2>      : Load a specific agent",
-        "!agent details <1|2>   : Display details of a specific agent",
-        "!agent system <1|2>    : Display the system prompt of an agent",
-        "!version               : Display the software version",
-        "!help                  : Show this help message",
-        "!quit                  : Quit the program",
+        "!agent list                  : List all available agents",
+        "!agent load    <AGENT NAME>  : Load a specific agent",
+        "!agent details <AGENT NAME>  : Display details of a specific agent",
+        "!agent system  <AGENT NAME>  : Display the system prompt of an agent",
+        "!agent history               : Display the message history of an agent",
+        "!version                     : Display the software version",
+        "!help                        : Show this help message",
+        "!quit or !bye                : Quits the program",
     ]
     print("Available Commands:\n")
     print("\n".join(commands_list))
@@ -361,7 +361,7 @@ def commands() -> None:
     agents = CommunityOfAgents()
     agent1 = agent2 = None
     loop = True
-    tools=[TimeKeeper,get_disruption_date] 
+    tools=[TimeKeeper,get_disruption_date,get_llm_versions] 
     agent1 = Agent(AGENT_REBECCA,USERNAME,MODEL,tools)
     agents.add_agent(agent1)
     agent1.respond("")
@@ -371,7 +371,7 @@ def commands() -> None:
         if command.startswith("!"):
             if command == "!agent list":
                 agents.list_agents()
-            elif command == "!quit":
+            elif command == "!quit" or command == "!bye":
                 loop = False
             elif command == "!version":
                 print("Version 1.0")
@@ -403,7 +403,6 @@ def commands() -> None:
             else:
                 print(colored(f"No agent loaded to respond.",'red'))      
         time.sleep(0.5)
-
 
 if __name__ == "__main__":
     commands()

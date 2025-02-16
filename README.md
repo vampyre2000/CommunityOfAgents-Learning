@@ -2,6 +2,8 @@
 
 Community of Agents is a Python-based project that creates a command-line interactive system where AI agents interact with the user. Each agent has its own personality, maintains a conversation history, and can execute built-in tools (such as fetching the current time) when needed.
 
+The main point of this project was to develop an agent framework from scratch and to learn something along the way.
+
 ## Overview
 
 This project demonstrates how to:
