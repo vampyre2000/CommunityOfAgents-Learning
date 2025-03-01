@@ -17,6 +17,12 @@ AGENT_PATH = './agents/'
 DATA_CACHE_DIR = "agents"
 MODEL = 'phi4'
 
+logging.basicConfig(level=logging.DEBUG)  # Change to INFO or WARNING in production
+logger = logging.getLogger(__name__)
+
+# Define the tools list globally
+DEFAULT_TOOLS = [TimeKeeper, get_disruption_date, get_llm_versions]
+
 # Parameters for the Rebecca Agent personality
 AGENT_REBECCA = {
     "agent_id": "00001",
@@ -38,44 +44,76 @@ AGENT_REBECCA = {
     "create_date": ""
 }
 
-logging.basicConfig(level=logging.DEBUG)  # Change to INFO or WARNING in production
-logger = logging.getLogger(__name__)
-
-# Define the tools list globally
-tools = [TimeKeeper, get_disruption_date, get_llm_versions]
-
 class Agent:
+    """
+    Represents an AI agent with a personality, tools, and conversation capabilities.
+    
+    This class handles the agent's interactions with the user, including processing
+    messages, managing tools, and maintaining conversation history.
+    """
+
     def __init__(self, agent: dict, username: str, model: str, tools: List[callable], temperature: float = 0.7):
+        """
+        Initialize a new Agent instance.
+        
+        Args:
+            agent: Dictionary containing agent personality details
+            username: Name of the user interacting with the agent
+            model: LLM model to use for generating responses
+            tools: List of callable tools available to the agent
+            temperature: Temperature setting for response generation (0.0-1.0)
+        """
+        # Agent personality attributes
+        self.agent_id = agent["agent_id"]
         self.first_name = agent["first_name"]
         self.last_name = agent["last_name"]
         self.sex = agent["sex"]
         self.age = agent["age"]
-        self.model = model
         self.personality = agent["personality"]
         self.description = agent["description"]
         self.mission = agent["mission"]
+        self.city = agent["city"]
+        self.country = agent["country"]
+        
+        # Agent operational attributes
+        self.model = model
         self.temperature = temperature
         self.username = username
-        self.country = agent["country"]
-        self.city = agent["city"]
         self.conversation_history = ""
-        self.system_prompt = f"You are a cyberpunk edgerunner and helpful assistant. Your name is {self.first_name}.\n You are {self.age} years old. {self.description}."
-        self.introduction = f"Introduce yourself to {self.username}. Keep it short and describe how you can assist."
-        self.intro_given = False
-        self.agent_id = agent["agent_id"]
+        
+        # Agent tool management
         self.tools = tools
+        self.custom_tools = {} # Storage for dynamically created tools
         self.intro = True
         self.operating_system = platform.system()
         self.tool_descriptions = self.prepare_agent_tools()
-
+        
+        # System prompt construction
+        self.system_prompt = f"You are a cyberpunk edgerunner and helpful assistant. Your name is {self.first_name}.\n You are {self.age} years old. {self.description}."
+        self.introduction = f"Introduce yourself to {self.username}. Keep it short and describe how you can assist."
+        self.intro_given = False
+        
     def prepare_agent_tools(self) -> str:
         """
-        Stores the tools in the toolbox and returns their descriptions.
+        Prepares descriptions of all available tools.
+        
+        Returns:
+            String containing all tool descriptions
         """
+
         toolbox = {}
         for tool in self.tools:
             toolbox[tool.__name__] = tool.__doc__
+
+        # Add custom tools to the descriptions
+        for name, doc in self.custom_tools.items():
+            toolbox[name] = doc
+
+        # Format tool descriptions
         return "\n".join([f"{name}: {doc}" for name, doc in toolbox.items()])
+    
+
+
 
     def choose_agent_tools(self, agent_response):
         message = agent_response['message']['content']
@@ -177,92 +215,171 @@ class Agent:
     def agent_response(self, model: str) -> dict:
         """
         Generates the agent response using the specified model.
+        
+        Args:
+            model: The LLM model to use
+            
+        Returns:
+            Dictionary containing the model's response
         """
-        return ollama.chat(
-            model,
-            messages=[
-                {'role': 'system', 'content': self.system_prompt},
-                {'role': 'user', 'content': self.user_prompt}
-            ],
-            options={'temperature': self.temperature}
-        )
+        try:
+            return ollama.chat(
+                model,
+                messages=[
+                    {'role': 'system', 'content': self.system_prompt},
+                    {'role': 'user', 'content': self.user_prompt}
+                ],
+                options={'temperature': self.temperature}
+            )
+        except Exception as e:
+            logger.error(f"Error generating agent response: {str(e)}")
+            return {
+                'message': {
+                    'content': f"```json\n{{\n\"tool_choice\": \"no tool\",\n\"tool_input\": null,\n\"agent_response\": \"I'm sorry, I encountered an error: {str(e)}\"\n}}\n```"
+                }
+            }
+
 
     def update_history(self, user_input, agent_response) -> None:
         """
-        Updates the conversation history
+        Updates the conversation history with the latest exchange.
+        
+        Args:
+            user_input: The user's message
+            agent_response: The agent's response
         """
-        self.conversation_history += f"\n<{self.username}>   : {user_input} \n<AI Agent>: {agent_response}"
+        if user_input:
+            self.conversation_history += f"\n<{self.username}>   : {user_input}"
+        if agent_response:
+            self.conversation_history += f"\n<AI Agent>: {agent_response}"
 
     def show_message_history(self) -> str:
         """
-        Displays the message history between the user and the agent.
+        Returns the full conversation history.
+        
+        Returns:
+            String containing the conversation history
         """
         return self.conversation_history
     
     def show_system_prompt(self) -> str: 
         """
-        Displays the system prompt for the agent.
+        Returns the current system prompt.
+        
+        Returns:
+            String containing the system prompt
         """
         return self.system_prompt    
 
-    def agent_introduction(self) -> None:
+    def agent_introduction(self) -> Optional[str]:
         """
-        Give the initial introduction by the agent
+        Provides the initial introduction by the agent.
+        
+        Returns:
+            The agent's introduction message or None if already introduced
         """
         if not self.intro_given:
             self.intro_given = True
             self.user_prompt = self.introduction
             self.update_system_prompt()
-            agent_response = self.extract_json(self.agent_response(self.model), 'agent_response')
-            self.update_history("", agent_response)
+
+            response = self.agent_response(self.model)
+            agent_response_text = self.extract_json(response, 'agent_response')
+
+            self.update_history("", agent_response_text)
             self.update_system_prompt()
-            return self.first_name + ">:" + agent_response
-        else:
-            return
+            return f"{self.first_name}>: {agent_response_text}"
+        return None
 
     def respond(self, user_input: str) -> str:
         """
         Processes the user message and generates a response.
+        
+        Args:
+            user_input: The user's message
+            
+        Returns:
+            The agent's response
         """
-        self.agent_introduction()
-        if user_input:
+        # Handle introduction if needed
+        introduction = self.agent_introduction()
+        if introduction and not user_input:
+            return introduction
+        if not user_input:
+            logger.debug("No user input provided")
+            return f"{self.first_name}>: I'm waiting for your message."
+
+        # Update system prompt with latest conversation history
+        self.update_system_prompt()
+        self.user_prompt = user_input
+        
+        # Get initial response
+        response = self.agent_response(self.model)
+        logger.debug(f"Initial response: {response}")
+
+        # Process tool usage if any
+        tool_response = self.choose_agent_tools(response)
+        logger.debug(f"Tool response: {tool_response}")
+
+        # Handle case where no tool is used   
+        if tool_response.get('tool_choice') is None or tool_response.get('tool_choice') == "no tool":
+            agent_response_text = tool_response.get('agent_response', "I'm not sure how to respond to that.")
+            self.update_history(user_input, agent_response_text)
             self.update_system_prompt()
-            self.user_prompt = user_input
+            return self.first_name + ">:" + agent_response_text
+        
+        # Handle case where a tool is used
+        try:
+            tool_choice = tool_response.get('tool_choice')
+            tool_output = tool_response.get('tool_output', "No output")
+            logger.debug(f"Using tool: {tool_choice} with output: {tool_output}")
+
+            self.user_prompt = f"I have used the {tool_choice} tool and the output of the tool is {tool_output}. Please respond to the user with this information."
+            self.update_system_prompt()
             response = self.agent_response(self.model)
-            logger.debug(f"Respond  {response}")
-            tool_response = self.choose_agent_tools(response)
-            logger.debug(f"Tool response  {tool_response}")
-            if tool_response['tool_choice'] == "no tool" or tool_response['tool_choice'] is None:
-                self.update_history(user_input, tool_response['agent_response'])
-                self.update_system_prompt()
-                return self.first_name + ">:" + tool_response['agent_response']
-            else:
-                print(f"<{self.first_name}>: {tool_response['tool_choice']}:{tool_response['tool_output']}")
-                self.user_prompt = f"I have used the {tool_response['tool_choice']} tool and the output of the tool is {tool_response['tool_output']}. Please respond to the user with this information."
-                self.update_system_prompt()
-                response = self.agent_response(self.model)
-                agent_response = self.extract_json(response, 'agent_response')
-                self.update_history(user_input, agent_response)
-                self.update_system_prompt()
-                return self.first_name + ">:" + agent_response
+            agent_response_text = self.extract_json(response, 'agent_response')
+            self.update_history(user_input, agent_response_text)
+            self.update_system_prompt()
+            return self.first_name + ">:" + agent_response_text
+        
+        except Exception as e:
+            logger.error(f"Error processing tool response: {str(e)}")
+            return f"I'm sorry, I encountered an error: {str(e)}"
+        
         else:
             logger.debug(f"No response found from user input")
             return
 
-    def extract_json(self, response: str, response_type) -> str:
+    def extract_json(self, response: dict, response_type: str) -> str:
         """
-        Extracts the JSON object from the response and returns the content.
+        Extracts the JSON object from the response and returns the specified field.
+        
+        Args:
+            response: The response dictionary
+            response_type: The field to extract from the JSON
+            
+        Returns:
+            The extracted content or an error message
         """
-        message = response['message']['content']
-        match = re.search(r"```json\s*(\{.*\})\s*```", message, re.DOTALL)
-        if match:
-            json_str = match.group(1)
-            try:
-                response_data = json.loads(json_str)
-                agent_message = response_data.get("agent_response", "")
-                return agent_message
-            except json.JSONDecodeError:
-                print(f"Failed to parse JSON from agent response.")
+        try:
+            message = response.get('message', {}).get('content', '')
+            match = re.search(r"```json\s*(\{.*\})\s*```", message, re.DOTALL)
+            if match:
+                json_str = match.group(1)
+                try:
+                    response_data = json.loads(json_str)
+                    return response_data.get(response_type, "")
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON from agent response: {e}")
+                    return f"I'm having trouble understanding my own thoughts. Please try again."
+            else:
+                # If no JSON is found, return the whole message
+                logger.error("No valid JSON found in the response.")
+                return message
+                
+        except Exception as e:
+            logger.error(f"Error extracting JSON: {str(e)}")
+            return f"Error processing response: {str(e)}"
 
     def show_message_history(self) -> str:
         """
@@ -270,10 +387,14 @@ class Agent:
         """
         return f"{self.conversation_history}"
 
-    def show_agent_details(self) -> None:
+    def show_agent_details(self) -> str:
         """
-        Displays the details of the agent.
+        Returns a formatted string with the agent's details.
+        
+        Returns:
+            String containing the agent's details
         """
+        
         details = [
             f"Name:            {self.first_name} {self.last_name}",
             f"Sex:             {self.sex}",
@@ -283,34 +404,87 @@ class Agent:
             f"System Prompt:   {self.system_prompt}",
             f"User Prompt:     {self.user_prompt}",
             f"Temperature:     {self.temperature}",
-            f"Tools available: {self.tools}"
+            f"Tools available: {len(self.tools) + len(self.custom_tools)}"
         ]
         return f"\n".join(details)
 
 class CommunityOfAgents:
+    """
+    Manages a collection of Agent instances.
+    """
+    
     def __init__(self):
+        """Initialize an empty community of agents."""
         self.agents: list[Agent] = []
 
     def list_agents(self) -> str:
+        """
+        Lists all agents in the community.
+        
+        Returns:
+            String listing all available agents
+        """
         if self.agents:
             return "\n".join([f"Agent available: {agent.first_name} {agent.last_name}" for agent in self.agents])
         else:
             return "There are no local agents loaded."
 
     def add_agent(self, agent) -> str:
+        """
+        Adds an agent to the community.
+        
+        Args:
+            agent: The Agent instance to add
+            
+        Returns:
+            Confirmation message
+        """
         self.agents.append(agent)
         return f"Agent {agent.first_name} {agent.last_name} added."
 
     def remove_agent(self, agent) -> str:
+        """
+        Removes an agent from the community.
+        
+        Args:
+            agent: The Agent instance to remove
+            
+        Returns:
+            Confirmation message
+        """
         self.agents.remove(agent)
         return f"Agent {agent.first_name} {agent.last_name} removed."
+    
+    def get_agent_by_id(self, agent_id: str) -> Optional[Agent]:
+        """
+        Retrieves an agent by its ID.
+        
+        Args:
+            agent_id: The ID of the agent to retrieve
+            
+        Returns:
+            The Agent instance or None if not found
+        """
+        for agent in self.agents:
+            if agent.agent_id == agent_id:
+                return agent
+        return None
 
-def Agent_interface(message, history):
+def Agent_interface(message: str, history: List[tuple[str, str]]) -> str:
     """
-    Provides the logic of the commands for the system and loads the agents and accepts input from the user.
+    Processes user commands and messages, routing them to the appropriate agent.
+    
+    Args:
+        message: The user's message or command
+        history: The conversation history
+        
+    Returns:
+        The response to the user
     """
     logger.debug(f"Message: {message}")
     logger.debug(f"History: {history}")
+
+    # Handle commands (messages starting with !)
     if message.startswith("!"):
         if message == "!agent list":
             return agents.list_agents()
@@ -323,9 +497,19 @@ def Agent_interface(message, history):
         elif message == "!agent system":
             return agent.display_system_prompt()
         elif message == "!help":
-            return "Available Commands:\n!agent list\n!agent load 1\n!agent details 1\n!agent history\n!agent system\n!agent size\n!version\n!quit\n!bye"
+            return """Available Commands:
+            !agent list    - List all available agents
+            !agent details - Show details of the current agent
+            !agent history - Show conversation history
+            !agent system  - Show system prompt
+            !agent tools   - List all available tools
+            !version       - Show version
+            !quit or !bye  - Exit the application
+            !help          - Show this help message"""
         else:
-            return "Command not found."
+            return f"Unknown command: {message}. Type !help for a list of commands."
+        
+    # Handle regular messages
     else:
         if agent:
             return agent.respond(message)
@@ -333,9 +517,11 @@ def Agent_interface(message, history):
             return "No agent loaded to respond."
 
 if __name__ == "__main__":
+    
+    # Initialize the community and default agent
     agents = CommunityOfAgents()
-    tools = [TimeKeeper, get_disruption_date, get_llm_versions]
-    agent = Agent(AGENT_REBECCA, USERNAME, MODEL, tools)
+    
+    agent = Agent(AGENT_REBECCA, USERNAME, MODEL, DEFAULT_TOOLS)
     agents.add_agent(agent)
 
     ChatbotDemo = gr.ChatInterface(
@@ -343,7 +529,10 @@ if __name__ == "__main__":
         type="messages",
         title="Community of Agents",
         description="The Community of Agents (COA) is a program that allows users to interact with multiple AI agents in a community.",
-        theme="ocean"
+        theme="ocean",
+        # Add these parameters to handle longer text better
+        #chatbot=gr.Chatbot(),  # Increase height
+        #textbox=gr.Textbox(placeholder="Type a message or command (e.g., !help)")
     )
 
     ChatbotDemo.launch()
