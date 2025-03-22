@@ -50,7 +50,7 @@ def get_llm_versions() -> str:
             results.append(f"Failed to fetch the webpage for {program}")
     return "\n".join(results)
 
-def get_disruption_date() -> str:
+def get_disruption_dates() -> str:
     """
     Allows the AI agent to find the dates of the global disruption, AGI, and the singularity.
     Parameters: None
