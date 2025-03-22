@@ -1,109 +1,116 @@
 # Community of Agents
 
-Community of Agents is a Python-based project that creates a command-line interactive system where AI agents interact with the user. Each agent has its own personality, maintains a conversation history, and can execute built-in tools (such as fetching the current time) when needed.
+Community of Agents is a Python-based project that creates a web-based interactive system where AI agents interact with the user. Each agent has its own personality, maintains a conversation history, and can execute built-in tools when needed.
 
-The main point of this project was to develop an agent framework from scratch and to learn something along the way.
+## Major Updates in 2025 Version
 
-## Overview
+- **Migrated to Gradio Interface:** Replaced command-line interface with a modern web-based UI
+- **Modular Architecture:** Code split into logical classes and modules
+- **Enhanced Toolbox System:** New modular toolbox with dynamic tool management
+- **Improved Error Handling:** Better error catching and logging throughout
+- **Web Interface Features:** Added visual elements including agent avatar
 
-This project demonstrates how to:
-- **Create and Manage AI Agents:** Each agent has a personality, conversation history, and a toolbox of functions (tools) it can use.
-- **Integrate Tools:** Agents can use tools (for example, `TimeKeeper`) to answer questions or perform specific tasks when they don't have a direct answer.
-- **Interact via a Command Line Interface:** Users can load agents, send messages, view agent details, and check conversation history using simple commands.
-- **Maintain a Conversation History:** Agents remember past interactions to provide context for future responses.
-- **Handle and Parse JSON Responses:** The system is designed to extract and parse JSON responses even when they are wrapped in markdown formatting.
+## Architecture Overview
 
-## Key Features
+The project now uses a class-based architecture with these main components:
 
-- **Interactive Chat Interface:** Engage with AI agents in real-time.
-- **Toolbox Integration:** Automatically uses tools when needed.
-- **Logging and Debugging:** Uses Python’s `logging` module for helpful debug messages.
-- **Extensible Design:** Easily add new tools or agent types.
-- **Command-Based Control:** Commands to load agents, list available agents, display details, and more.
+- **Agent Class:** Manages individual agent behavior and responses
+- **Toolbox Class:** Handles tool registration and execution
+- **CommunityOfAgents Class:** Manages multiple agents
+- **Gradio Interface:** Provides web-based user interaction
 
 ## Installation
 
 1. **Clone the Repository:**
-
-   ```bash
-   git clone https://github.com/your-username/CommunityOfAgents.git
-   cd CommunityOfAgents
+```bash
+git clone https://github.com/your-username/CommunityOfAgents.git
+cd CommunityOfAgents
+```
 
 2. **Create a Virtual Environment:**
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
 3. **Install Dependencies:**
-    ```bash
-    pip install -r requirements.txt
+```bash
+pip install -r requirements.txt
+```
 
-4. **Usage:**
-To start the application, run:
-    ```bash
-    python COA.py
-    You will see a prompt (#>) where you can enter commands.
+## Usage
 
-5. **Available Commands:**
-    ```bash
-    !agent load 1
-    Loads the first agent (e.g., Agent Rebecca).
+To start the web interface:
+```bash
+python COA.py
+```
 
-    !agent list
-    Lists all loaded agents.
+Your browser will open to `http://localhost:7860` with the chat interface.
 
-    !agent details 1
-    Displays detailed information about the first agent.
+## Available Commands
 
-    !agent system
-    Shows the current system prompt of the agent.
+All previous commands work in the chat interface:
 
-    !agent history
-    Displays the conversation history between you and the agent.
+```
+!agent list    - List all available agents
+!agent details - Show details of the current agent
+!agent history - Show conversation history
+!agent system  - Show system prompt
+!agent tools   - List all available tools
+!version       - Show version
+!quit or !bye  - Exit the application
+!help         - Show this help message
+```
 
-    !version
-    Shows the software version.
+## Example Interactions
 
-    !help
-    Displays a list of available commands.
+1. **Using Tools:**
+```
+You: what time is it?
+Rebecca>: Let me check that for you with my TimeKeeper tool.
+[Tool Output: 2025-03-22 14:35:22]
+Rebecca>: It's currently 14:35. Need anything else, chummer?
+```
 
-    !quit
-    Exits the application.
+2. **System Status:**
+```
+You: check system status
+Rebecca>: Let me run a quick diagnostic with my system metrics tool.
+[Tool Output: CPU: 45%, Memory: 8.2GB/16GB...]
+Rebecca>: Your system's running smooth - CPU's at 45% and you've got plenty of memory left.
+```
 
-6. **Example Interaction:**
-    Load an Agent:
+3. **Browser Search:**
+```
+You: search for "latest AI news"
+Rebecca>: Opening your browser to check that out for you.
+[Browser opens with Google search]
+```
 
-    ```bash
-    #> !agent load 1
-    Agent Rebecca added.
+## Code Structure
 
-7.  **Start a Conversation:**
-    ```bash
-    #> hello
-    <Rebecca>: {"tool_choice": "no tool", "tool_input": "Hello there! How can I assist you today  "} ...
-8. **Ask a Tool-Based Question:**
-    ```bash
-    #> what time is it?
-    <Rebecca>: {"tool_choice": "TimeKeeper", "tool_input": null} ...
+```
+CommunityOfAgents/
+├── agent/
+│   └── agent.py         # Agent class definition
+├── agents/
+│   └── agents.py         # Agent class definition
+├── tools/
+│   ├── Time_Keeper.py   # Time-related tools
+│   ├── System_Status.py # System monitoring tools
+│   └── Browser_Search.py # Web search tool
+│   └── LLMVersionCheck.py # AI tools Web search tool
+├── toolbox/
+│   └── Toolbox.py       # Toolbox class definition
+├── COA.py              # Main application
+└── README.md
+```
 
-9. **Code Structure:**
-    COA.py:
-    Main script that contains the command line interface and core logic for agent interactions.
+## Contributing
 
-    agents/agents.py:
-    Contains agent definitions (e.g., AGENT_REBECCA and AGENT_JOHN).
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
-    tools/time_keeper.py:
-    Contains the TimeKeeper function used by agents.
+## License
 
-    README.md:
-    This file, which outlines the project details and usage.
-
-10. **Contributing:**
-    Contributions are welcome! If you have suggestions or improvements, feel free to fork the repository and open a pull request. If you encounter any issues, please open an issue on GitHub.
-
-    License
-    This project is licensed under the MIT License.
-
-    Feel free to reach out if you have any questions or need further assistance!
+This project is licensed under the MIT License - see the LICENSE file for details.
 
