@@ -39,6 +39,16 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+4. **Manual Install Dependencies:**
+```bash
+pip install -r gradio
+pip install -r bs4
+pip install -r ollama
+pip install -r psutil
+pip install -r pysensors
+```
+
+
 ## Usage GUI
 
 To start the web interface:

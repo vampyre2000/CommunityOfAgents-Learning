@@ -273,7 +273,7 @@ def show_cli_welcome():
 if __name__ == "__main__":
 
     #Choose to launch the GUI or not
-    launch_gui = True
+    launch_gui = False
 
     # Initialize the default agent with the specified personality and tools
     agent = Agent(AGENT, USERNAME, MODEL, DEFAULT_TOOLS)
