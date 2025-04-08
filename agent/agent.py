@@ -7,7 +7,7 @@ from toolbox.Toolbox import Toolbox
 import platform
 from datetime import date, datetime
 import textwrap
-logging.basicConfig(level=logging.DEBUG)  # Change to INFO or WARNING in production
+logging.basicConfig(level=logging.WARNING)  # Change to INFO or WARNING in production
 logger = logging.getLogger(__name__)
 
 class Agent:

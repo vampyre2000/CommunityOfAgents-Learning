@@ -1,27 +1,8 @@
 import logging
-import datetime
 from typing import Optional, List
 
-logging.basicConfig(level=logging.DEBUG)  # Change to INFO or WARNING in production
+logging.basicConfig(level=logging.WARNING)  # Change to INFO or WARNING in production
 logger = logging.getLogger(__name__)
-#DEFAULT_TOOLS = [TimeKeeper, get_disruption_dates, get_llm_versions, get_system_metrics, browser]
-
-def TimeKeeper() -> str:
-    """ 
-    Allows the AI agent to find the current time when the user requests it.
-    Parameters: None
-    Returns: str: The current formatted time.
-    """
-    return datetime.datetime.now()
-
-def get_disruption_dates() -> str:
-    """
-    Allows the AI agent to find the disruption dates when the user requests it.
-    Parameters: None
-    Returns: str: The disruption dates.
-    """
-    return "Disruption dates are 1st and 15th of every month."
-
 
 class Toolbox:
     """
@@ -127,4 +108,3 @@ class Toolbox:
         # Fallback if for some reason the tool wasn't executed.
         logger.debug("Tool not executed. Returning default response.")
         return {"tool_choice": "no tool", "tool_input": None, "tool_output": None}
-

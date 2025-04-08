@@ -20,7 +20,7 @@ DATA_CACHE_DIR = "agents"
 MODEL = 'phi4'
 #MODEL = 'gemma3'
 
-logging.basicConfig(level=logging.DEBUG)  # Change to INFO or WARNING in production
+logging.basicConfig(level=logging.WARNING)  # Change to INFO or WARNING in production
 logger = logging.getLogger(__name__)
 
 # Define the tools list globally
@@ -195,7 +195,7 @@ def create_interface(agent, respond_fn) -> gr.Blocks:
         
     return interface
 
-def format_cli_output(text: str, width: int = 80) -> str:
+def format_cli_output(text: str, width: int = 120) -> str:
         """
         Formats text for CLI display with proper wrapping and indentation.
         
@@ -250,11 +250,31 @@ def respond(message, history):
             logger.error(f"Error in respond: {str(e)}")
             return "", history   
 
+def show_cli_welcome():
+    """Display welcome message with ASCII art."""
+    ascii_art = f"""
+     ______     ______     ______    
+    /\  ___\   /\  __ \   /\  __ \   
+    \ \ \____  \ \ \_\ \  \ \  __ \  
+     \ \_____\  \ \_____\  \ \_\ \_\ 
+      \/_____/   \/_____/   \/_/\/_/ 
+                                     
+    Community Of Agents v{VERSION_INFO}
+    Powered by Ollama
+    Date: {date.today().strftime('%Y-%m-%d')}
+    """
+    
+    print(ascii_art)
+    print("=" * 50)
+    print("Type !help for available commands")
+    print("=" * 50 + "\n")
+
+
 
 if __name__ == "__main__":
 
     #Choose to launch the GUI or not
-    launch_gui = False
+    launch_gui = True
 
     # Initialize the default agent with the specified personality and tools
     agent = Agent(AGENT, USERNAME, MODEL, DEFAULT_TOOLS)
@@ -272,10 +292,7 @@ if __name__ == "__main__":
         )
     else:
         # Launch without GUI (for CLI or other purposes)
-        print("\nCommunity of Agents CLI Interface")
-        print("=" * 50)
-        print("Type !help for available commands")
-        print("=" * 50 + "\n")
+        show_cli_welcome()
         
         while True:
             try:
