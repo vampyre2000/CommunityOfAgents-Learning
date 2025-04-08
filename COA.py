@@ -1,6 +1,5 @@
 import gradio as gr
 import logging
-import textwrap
 from toolbox.Toolbox import Toolbox
 from agent.agent import Agent  # Import the Agent class from the agents module
 from agents.agents import AGENT_REBECCA  # Import the agents.py file to access the agent personality details.
