@@ -1,3 +1,5 @@
+import webbrowser
+
 def browser(query: str) -> str:
     """
     Search the query in the browser with the `browser` tool.
@@ -6,7 +8,7 @@ def browser(query: str) -> str:
     Returns:
         str: The search results.
     """
-    import webbrowser
+    
     url = f"https://www.google.com/search?q={query}"
     webbrowser.open(url)
     return f"Searching for {query} in the browser."

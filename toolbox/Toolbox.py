@@ -1,27 +1,7 @@
 import logging
-import datetime
 from typing import Optional, List
 
-logging.basicConfig(level=logging.DEBUG)  # Change to INFO or WARNING in production
 logger = logging.getLogger(__name__)
-#DEFAULT_TOOLS = [TimeKeeper, get_disruption_dates, get_llm_versions, get_system_metrics, browser]
-
-def TimeKeeper() -> str:
-    """ 
-    Allows the AI agent to find the current time when the user requests it.
-    Parameters: None
-    Returns: str: The current formatted time.
-    """
-    return datetime.datetime.now()
-
-def get_disruption_dates() -> str:
-    """
-    Allows the AI agent to find the disruption dates when the user requests it.
-    Parameters: None
-    Returns: str: The disruption dates.
-    """
-    return "Disruption dates are 1st and 15th of every month."
-
 
 class Toolbox:
     """
@@ -61,7 +41,7 @@ class Toolbox:
         """
         for tool in toollist:
             self.add_tool(tool)
-        
+
     def remove_tool(self, tool):
         """
         Removes a tool from the toolbox.
@@ -120,11 +100,21 @@ class Toolbox:
         """
         for tool in self.toolbox:
             if tool.__name__ == tool_choice:
-                tool_output = tool(tool_input) if tool_input else tool()
-                logger.debug(f"Executed tool {tool_choice} with output: {tool_output}")
-                return {"tool_choice": tool_choice, "tool_input": tool_input, "tool_output": tool_output}
-                
+                logger.debug(f"Executing tool {tool_choice} with input: {tool_input}")
+                try:
+                    # Check if the tool requires input
+                    if tool_input and tool_input != "None":
+                        # If the tool requires input, pass it to the tool
+                        tool_output = tool(tool_input)
+                    else:
+                        # If the tool doesn't require input, call it without arguments
+                        tool_output = tool()
+                    logger.debug(f"Executed tool {tool_choice} with output: {tool_output}")
+                    return {"tool_choice": tool_choice, "tool_input": tool_input, "tool_output": tool_output}
+                except TypeError as e:
+                    logger.error(f"Error executing tool {tool_choice}: {str(e)}")
+                    return {"tool_choice": "None", "tool_input": "None", "tool_output": f"Error: {str(e)}"}
+
         # Fallback if for some reason the tool wasn't executed.
         logger.debug("Tool not executed. Returning default response.")
-        return {"tool_choice": "no tool", "tool_input": None, "tool_output": None}
-
+        return {"tool_choice": "None", "tool_input": "None", "tool_output": "None"}

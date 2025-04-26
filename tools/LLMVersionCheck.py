@@ -28,7 +28,7 @@ today = datetime.date.today()
 def get_llm_versions() -> str:
     """
     Allows the AI agent to find the current versions of common LLM front/backends.
-    Parameters: None
+    Parameters: "None"
     Returns: string of the current versions of the software
     """
     results = []

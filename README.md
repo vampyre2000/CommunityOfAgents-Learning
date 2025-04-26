@@ -5,10 +5,11 @@ Community of Agents is a Python-based project that creates a web-based interacti
 ## Major Updates in 2025 Version
 
 - **Migrated to Gradio Interface:** Replaced command-line interface with a modern web-based UI
-- **Modular Architecture:** Code split into logical classes and modules
-- **Enhanced Toolbox System:** New modular toolbox with dynamic tool management
-- **Improved Error Handling:** Better error catching and logging throughout
-- **Web Interface Features:** Added visual elements including agent avatar
+- **Updated the Terminal version:** Re-added the command-line interface
+- **Modular Architecture:**         Code split into logical classes and modules
+- **Enhanced Toolbox System:**      New modular toolbox with dynamic tool management
+- **Improved Error Handling:**      Better error catching and logging throughout
+- **Web Interface Features:**       Added visual elements including agent avatar
 
 ## Architecture Overview
 
@@ -38,12 +39,31 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Usage
+4. **Manual Install Dependencies:**
+```bash
+pip install -r gradio
+pip install -r bs4
+pip install -r ollama
+pip install -r psutil
+pip install -r pysensors
+```
+
+
+## Usage GUI
 
 To start the web interface:
 ```bash
 python COA.py
 ```
+
+## Usage
+
+To start the cli text interface:
+Change the launch_gui = False in the file COA.py 
+```bash
+python COA.py
+```
+
 
 Your browser will open to `http://localhost:7860` with the chat interface.
 
@@ -92,18 +112,21 @@ Rebecca>: Opening your browser to check that out for you.
 ```
 CommunityOfAgents/
 ├── agent/
-│   └── agent.py         # Agent class definition
+│   └── agent.py           # Agent class definition
 ├── agents/
-│   └── agents.py         # Agent class definition
+│   └── agents.py          # Contains the agent personalities
+├── images/
+│   └── agents.jpg         # Contains the images for the agent personalities
 ├── tools/
-│   ├── Time_Keeper.py   # Time-related tools
-│   ├── System_Status.py # System monitoring tools
-│   └── Browser_Search.py # Web search tool
+│   ├── Time_Keeper.py     # Time-related tools
+│   ├── System_Status.py   # System monitoring tools
+│   └── Browser_Search.py  # Web search tool
 │   └── LLMVersionCheck.py # AI tools Web search tool
 ├── toolbox/
-│   └── Toolbox.py       # Toolbox class definition
-├── COA.py              # Main application
+│   └── Toolbox.py         # Toolbox class definition
+├── COA.py                 # Main application
 └── README.md
+└── requirements.txt
 ```
 
 ## Contributing
@@ -113,4 +136,3 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
