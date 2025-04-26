@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import List, Optional
 
 
-logging.basicConfig(level=logging.DEBUG)  # Change to INFO or WARNING in production
 logger = logging.getLogger(__name__)
 
 def list_images() -> str:
