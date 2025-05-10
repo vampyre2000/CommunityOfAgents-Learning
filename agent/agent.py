@@ -51,6 +51,16 @@ class Message:
             String containing the conversation history
         """
         return "\n".join(self.messages)
+        
+    def clear_message_history(self) -> str:
+        """
+        Clears the conversation history.
+        
+        Returns:
+            Confirmation message
+        """
+        self.messages = []
+        return "Conversation history cleared."
 
 
 class Agent:
@@ -82,7 +92,7 @@ class Agent:
         conversation_history (List[str]): Record of conversation exchanges
     """
 
-    def __init__(self, agent: dict, username: str, model: str, tools: List[callable], temperature: float = 0.7):
+    def __init__(self, agent: dict, username: str, model: str, tools: List[callable], temperature: float = 0.6):
         """
         Initialize a new Agent instance.
         
@@ -129,6 +139,7 @@ class Agent:
                            "Keep it short and describe how you can assist.")
         self.user_prompt = ""
 
+        #self.agent_introduction(self)
 
     def check_json_response(self, response: str) -> Dict:
         """
@@ -137,7 +148,10 @@ class Agent:
         try:
             logger.debug(f"Raw response before parsing: {response}")
             
-                    
+            # Sanitize the response to escape invalid characters and fix unterminated strings
+            sanitized_response = response.replace('\\"', '"')  # Unescape any escaped quotes
+            sanitized_response = re.sub(r'(?<!\\)"([^"]*?)$', r'"\1"', sanitized_response)  # Fix missing closing quotes
+            
             json_patterns = [
                 r"```json\s*(\{.*?\})\s*```",  # JSON between ```json ``` blocks
                 r"json\s*(\{.*?\})\s*",        # JSON after json keyword
@@ -146,7 +160,7 @@ class Agent:
             ]
             
             for pattern in json_patterns:
-                match = re.search(pattern, response, re.DOTALL)
+                match = re.search(pattern, sanitized_response, re.DOTALL)
                 if match:
                     json_str = match.group(1).strip()
                     logger.debug(f"Sanitized JSON string: {json_str}")
@@ -236,18 +250,14 @@ class Agent:
         day_of_week = datetime.now().strftime('%A')
         date_today = date.today()
         self.system_prompt = textwrap.dedent(rf"""
-        
+        ### Current Date and Time        
         Today is {day_of_week}, {date_today}.                                    
-
-        
         ### Identity
-
         Your name is {self.first_name}. You are {self.age} years old, {self.sex}, and currently live in {self.city}, {self.country}.
         {self.description}.
         You are a cyberpunk edgerunner and a helpful assistant with access to a toolbox as part of your cyberdeck.
         Your personality is {self.personality}.
         You always think step by step and talk in character. Be sharp-tongued, confident, and a bit cheeky in your responses.
-
         ### Mission
         If you don't know the answer to a user's question, you will try to use an available tool from your cyberdeck. 
         Otherwise, ask the user for more information.
@@ -258,12 +268,13 @@ class Agent:
             "agent_response": "The response to the user"
         }}'''
         You will always use the same format for your responses, even if the user doesn't ask for it.
-        
-        ### Tool Management
-        
-        Your cyberdeck operates on {self.operating_system}, enabling you to assist the user effectively.
+        ### Toolbox    
+        Your cyberdeck is your toolbox and operates on {self.operating_system}, enabling you to assist the user effectively.
+        When the user asks what tools you have, you will provide a list of the tools available in your toolbox.
         The list of your tools available along with their descriptions:
+        ### Tools
         {self.tool_descriptions}
+        ### Tool Management
         Please make a decision based on the provided user query and your available tools.
         
         1. Given a user query, you will determine which tool, if any, is best suited to answer the query.
@@ -273,7 +284,7 @@ class Agent:
         - `tool_input`: The specific inputs required for the selected tool. If there are no inputs required set to "None"
         - `agent_response` : If no tool is used, just provide a direct response to the query.
 
-        When responding to the user you must always provide a JSON object as your response with the following structure:
+        2. When responding to the user you must always provide a JSON object as your response with the following structure:
         '''json{{
             "tool_choice": "name_of_the_tool",
             "tool_input": "inputs_to_the_tool",
@@ -298,15 +309,14 @@ class Agent:
         When you use a tool, always remember to format the output of the tool to be easy to read and understand.
         If the tool output is too long, you will summarize it and provide the most relevant information to the user.
         If the tool output is a list, you will always provide the first 10 items of the list and say that there are more items.
-        ### Conversation History
         
+        ### Conversation History
         You will always read the conversation history below and remember the details so you can respond to the user with accurate information.
         The conversation history between {self.username} and {self.first_name} is below:
         <conversation_history>
         {self.conversation_history.show_history()}
         </conversation_history>
         """)
-
 
     def show_system_prompt(self) -> str: 
         """
@@ -317,7 +327,7 @@ class Agent:
         """
         return self.system_prompt    
 
-    def agent_response(self, model: str) -> dict:
+    def llm_response(self, model: str) -> dict:
         """
         Generates the agent response using the specified model.
         
@@ -356,7 +366,7 @@ class Agent:
             self.intro_given = True
             self.user_prompt = self.introduction
             self.update_system_prompt()
-            response = self.agent_response(self.model)['message']['content']
+            response = self.llm_response(self.model)['message']['content']
             parsed_response = self.check_json_response(response)
             agent_resp_text = parsed_response.get('agent_response')
             logger.debug(f"Agent introduction: {agent_resp_text}")
@@ -366,7 +376,7 @@ class Agent:
             return f"{self.first_name}>: {agent_resp_text}"
         return None
 
-    def respond(self, user_input: str) -> str:
+    def agent_response(self, user_input: str) -> str:
         """
         Processes the user message and generates a response.
         
@@ -390,12 +400,19 @@ class Agent:
         self.user_prompt = user_input
 
         # Get initial response
-        response = self.get_initial_response()
-        logger.debug(f"Initial response: {response}")
-        
+        raw_response = self.llm_response(self.model)['message']['content']
+        logger.debug(f"Initial response: {raw_response}")
+
+        # Extract and log the <think> section
+        think_match = re.search(r"<think>(.*?)</think>", raw_response, re.DOTALL)
+        think_text = "None"
+        if think_match:
+            think_text = think_match.group(1).strip()
+            logger.debug(f"Think section: {think_text}")
+            print(f"Think: {think_text}")  # Print the <think> section for visibility
 
         # Check for JSON response and extract fields
-        response = self.check_json_response(response)
+        response = self.check_json_response(raw_response)
         logger.debug(f"Checked response: {response}")
 
         # Process tool usage if any
@@ -405,19 +422,11 @@ class Agent:
         # Handle case where no tool is used   
         if tool_response.get('tool_choice') == "None":
             return self.handle_no_tool_response(user_input, tool_response)
+        else:
+            # Handle case where a tool is used
+            return self.handle_tool_response(user_input, tool_response)
 
-        # Handle case where a tool is used
-        return self.handle_tool_response(user_input, tool_response)
-
-    def get_initial_response(self) -> str:
-        """
-        Generates the initial response from the agent.
-        
-        Returns:
-            The initial response content
-        """
-        return self.agent_response(self.model)['message']['content']
-
+    
     def handle_no_tool_response(self, user_input: str, tool_response: dict) -> str:
         """
         Handles the case where no tool is used in the response.
@@ -451,7 +460,7 @@ class Agent:
             logger.debug(f"Using tool: {tool_choice} with output: {tool_output}")
             self.user_prompt = f"I have used the {tool_choice} tool and the output of the tool is {tool_output}. Please respond to the user with this information."
             self.update_system_prompt()
-            response = self.get_initial_response()
+            response = self.llm_response(self.model)['message']['content']
             agent_response=self.check_json_response(response)
             agent_resp_text = agent_response.get('agent_response')
             self.conversation_history.update_history(user_input, agent_resp_text)

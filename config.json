@@ -1,0 +1,8 @@
+{
+    "username": "Vampy",
+    "default_model": "qwen3:8b",
+    "launch_gui": true,
+    "max_history": 1000,
+    "temperature": 0.6,
+    "theme": "ocean"
+}

@@ -29,7 +29,7 @@ def get_llm_versions() -> str:
     """
     Allows the AI agent to find the current versions of common LLM front/backends.
     Parameters: "None"
-    Returns: string of the current versions of the software
+    Returns: str: A formatted string of the current versions of the software
     """
     results = []
     for program in Software_versions:
@@ -53,8 +53,8 @@ def get_llm_versions() -> str:
 def get_disruption_dates() -> str:
     """
     Allows the AI agent to find the dates of the global disruption, AGI, and the singularity.
-    Parameters: None
-    Returns: String of the dates of the global disruption, AGI, and the singularity
+    Parameters: "None"
+    Returns: str: String of the dates of the global disruption, AGI, and the singularity
     """
     disruption_days= (GLOBAL_DISRUPTION - today)
     AGI_days=        (AGI_DATE - today)
