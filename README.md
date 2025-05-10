@@ -10,6 +10,9 @@ Community of Agents is a Python-based project that creates a web-based interacti
 - **Enhanced Toolbox System:**      New modular toolbox with dynamic tool management
 - **Improved Error Handling:**      Better error catching and logging throughout
 - **Web Interface Features:**       Added visual elements including agent avatar
+- **Configuration Management:**     Added persistent configuration with JSON storage
+- **New Tools:**                    Added Weather, Calculator, and enhanced Time tools
+- **Multi-Agent Support:**          Improved framework for multiple agent personalities
 
 ## Architecture Overview
 
@@ -69,27 +72,30 @@ Your browser will open to `http://localhost:7860` with the chat interface.
 
 ## Available Commands
 
-All previous commands work in the chat interface:
+All commands work in both the CLI and web interface:
 
 ```
-!agent list    - List all available agents
-!agent details - Show details of the current agent
-!agent history - Show conversation history
-!agent system  - Show system prompt
-!agent tools   - List all available tools
-!version       - Show version
-!quit or !bye  - Exit the application
-!help         - Show this help message
+!agent list           - List all available agents
+!agent details        - Show details of the current agent
+!agent history        - Show conversation history
+!agent history clear  - Clear conversation history
+!agent system         - Show system prompt
+!agent tools          - List all available tools
+!agent model          - Show current model information
+!config               - Show current configuration
+!version              - Show version
+!quit or !bye         - Exit the application
+!help                 - Show this help message
 ```
 
 ## Example Interactions
 
-1. **Using Tools:**
+1. **Time Tool:**
 ```
 You: what time is it?
 Rebecca>: Let me check that for you with my TimeKeeper tool.
-[Tool Output: 2025-03-22 14:35:22]
-Rebecca>: It's currently 14:35. Need anything else, chummer?
+[Tool Output: Current time: 2025-03-22 14:35:22 (Saturday)]
+Rebecca>: It's currently 14:35 on Saturday. Need anything else, chummer?
 ```
 
 2. **System Status:**
@@ -107,6 +113,33 @@ Rebecca>: Opening your browser to check that out for you.
 [Browser opens with Google search]
 ```
 
+4. **Calculator:**
+```
+You: calculate 15% of 85.75
+Rebecca>: Let me crunch those numbers for you.
+[Tool Output: 12.8625]
+Rebecca>: 15% of 85.75 is 12.86. Anything else you need calculated?
+```
+
+5. **Weather Information:**
+```
+You: what's the weather in Sydney?
+Rebecca>: Let me check the weather for you.
+[Tool Output: Weather for Sydney, AU: Temperature: 22°C, Partly cloudy...]
+Rebecca>: Looks like it's 22°C and partly cloudy in Sydney right now. Not bad weather for a run, if you're into that sort of thing.
+```
+
+6. **Configuration Management:**
+```
+You: !config
+System: username: Vampy
+default_model: qwen3:8b
+launch_gui: true
+max_history: 1000
+temperature: 0.6
+theme: ocean
+```
+
 ## Code Structure
 
 ```
@@ -120,11 +153,15 @@ CommunityOfAgents/
 ├── tools/
 │   ├── Time_Keeper.py     # Time-related tools
 │   ├── System_Status.py   # System monitoring tools
-│   └── Browser_Search.py  # Web search tool
-│   └── LLMVersionCheck.py # AI tools Web search tool
+│   ├── Browser_Search.py  # Web search tool
+│   ├── LLMVersionCheck.py # AI tools version checker
+│   ├── List_Images.py     # Image listing and management
+│   ├── Weather_Info.py    # Weather information tool
+│   └── Calculator.py      # Mathematical calculation tool
 ├── toolbox/
 │   └── Toolbox.py         # Toolbox class definition
 ├── COA.py                 # Main application
+├── config.json            # Configuration file (auto-generated)
 └── README.md
 └── requirements.txt
 ```

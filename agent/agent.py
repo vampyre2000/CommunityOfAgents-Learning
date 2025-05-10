@@ -51,6 +51,16 @@ class Message:
             String containing the conversation history
         """
         return "\n".join(self.messages)
+        
+    def clear_message_history(self) -> str:
+        """
+        Clears the conversation history.
+        
+        Returns:
+            Confirmation message
+        """
+        self.messages = []
+        return "Conversation history cleared."
 
 
 class Agent:

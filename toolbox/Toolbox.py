@@ -97,6 +97,15 @@ class Toolbox:
         exists = tool_choice in [tool.__name__ for tool in self.toolbox]
         logger.debug(f"Tool {tool_choice} {'found' if exists else 'not found'} in the toolbox.")
         return exists
+        
+    def __len__(self) -> int:
+        """
+        Returns the number of tools in the toolbox.
+        
+        Returns:
+            int: Number of tools in the toolbox
+        """
+        return len(self.toolbox)
 
     def execute_tool(self, tool_choice: str, tool_input: str) -> dict:
         """
