@@ -73,6 +73,17 @@ class Toolbox:
         toolbox_dict = {tool.__name__: tool.__doc__.strip() for tool in self.toolbox}
         return "\n".join([f"{name}: {doc}" for name, doc in toolbox_dict.items()])
 
+    def get_tool_list(self) -> str:
+        """
+        Returns a list of all available tools in the toolbox.
+        
+        Returns:
+            str: A formatted string containing all tool names.
+        """
+        tool_list = [tool.__name__ for tool in self.toolbox]
+        return "\n".join(tool_list)
+        logger.debug(f"Tool list: {tool_list}")
+    
     def check_tool_exists(self, tool_choice: str) -> bool:
         """
         Check whether the tool exists in our toolbox.

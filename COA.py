@@ -16,16 +16,16 @@ VERSION_INFO = "0.1.0"
 USERNAME = "Vampy"
 AGENT_PATH = './agents/'
 DATA_CACHE_DIR = "agents"
-MODELS = ['cogito:8b','gemma3:12b','phi4']
+MODELS = ['cogito:8b','gemma3:12b','phi4','qwen3:0.6b','qwen3:8b']
 # Define the tools list globally
 DEFAULT_TOOLS = [TimeKeeper, get_disruption_dates, get_llm_versions, get_system_metrics]
 AGENT = AGENT_REBECCA
 
 
-logging.basicConfig(level=logging.WARNING)  # Change to INFO or WARNING in production
+logging.basicConfig(level=logging.INFO)  # Change to INFO or WARNING in production
 logger = logging.getLogger(__name__)
 
-logger.setLevel(logging.WARNING)
+logger.setLevel(logging.INFO)
 
 class CommunityOfAgents:
     """
@@ -154,7 +154,7 @@ class Interface:
         # Handle regular messages
         else:
             if agent:
-                return agent.respond(message)
+                return agent.agent_response(message)
             else:
                 return "No agent loaded to respond."
     
@@ -266,7 +266,7 @@ class Interface:
             with gr.Row():
                 # Left column for the image
                 with gr.Column(scale=1):
-                    dynamic_img = gr.Image(value="./images/agent.jpg", height=600, width=300, label="Agent Avatar")
+                    dynamic_img = gr.Image(value="./images/Rebecca.jpg", height=600, width=300, label="Agent Avatar")
 
                 # Right column for chat components
                 with gr.Column(scale=3):
@@ -307,7 +307,7 @@ class Interface:
         Returns:
             Response from the agent
         """
-        return self.agent.respond(message)
+        return self.agent.agent_response(message)
 
     def show_version(self) -> str:
         """
@@ -339,7 +339,7 @@ class Interface:
                 # Check if response contains an image change request
             else:
                 # Handle regular chat messages
-                response = agent.respond(message)
+                response = agent.agent_response(message)
                 history.append((message, response))
                 return "", history
         except Exception as e:
@@ -368,14 +368,14 @@ class Interface:
 if __name__== "__main__":
 
     #Choose to launch the UI or CLI interface
-    launch_gui = False
+    launch_gui = True
 
     # Initialize the default agent with the specified personality and tools
-    agent = Agent(AGENT, USERNAME, MODELS[2], DEFAULT_TOOLS)
+    agent = Agent(AGENT, USERNAME, MODELS[4], DEFAULT_TOOLS)
     
     # Initialize the community and default agent
-    agents = CommunityOfAgents()
-    agents.add_agent(agent)
+    #agents = CommunityOfAgents()
+    #agents.add_agent(agent)
 
     # Initialize the interfaces
     agent_interface = Interface(agent,launch_gui)
