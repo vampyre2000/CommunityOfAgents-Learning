@@ -18,10 +18,10 @@ Community of Agents is a Python-based project that creates a web-based interacti
 
 The project now uses a class-based architecture with these main components:
 
-- **Agent Class:** Manages individual agent behavior and responses
-- **Toolbox Class:** Handles tool registration and execution
-- **CommunityOfAgents Class:** Manages multiple agents
-- **Gradio Interface:** Provides web-based user interaction
+- **Agent Class:**                  Manages individual agent behavior and responses
+- **Toolbox Class:**                Handles tool registration and execution
+- **CommunityOfAgents Class:**      Manages multiple agents
+- **Gradio Interface:**             Provides web-based user interaction
 
 ## Installation
 
