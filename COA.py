@@ -443,13 +443,18 @@ class Interface:
                     agent_img = gr.Image(value=f"./images/{self.agent.first_name}.jpg", 
                                         height=400, width=300, label="Agent Avatar")
                     
-                    with gr.Accordion("Agent Information", open=False):
+                    with gr.Accordion("Agent Information", open=True):
                         agent_info = gr.Markdown(f"""
                         **Name:** {self.agent.first_name} {self.agent.last_name}
                         **Age:** {self.agent.age}
                         **Location:** {self.agent.city}, {self.agent.country}
                         """)
                     
+                    with gr.Accordion("Agent tools", open=False):
+                        agent_info = gr.Markdown(f"""
+                        **Tools:** {self.agent.tool_descriptions}
+                        """)
+
                     with gr.Accordion("Available Commands", open=False):
                         gr.Markdown("""
                         - !agent list - List all available agents

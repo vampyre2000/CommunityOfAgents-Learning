@@ -30,8 +30,7 @@ def calculate(expression: str) -> str:
     Args:
         expression: A mathematical expression as a string (e.g., "2 + 2", "5 * (3 + 2)")
         
-    Returns:
-        str: The result of the calculation or an error message
+    Returns: str: The result of the calculation or an error message
     """
     try:
         # Clean the expression
