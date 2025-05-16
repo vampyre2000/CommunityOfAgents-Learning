@@ -16,6 +16,7 @@ from tools.Browser_Search import browser
 from tools.List_Images import list_images, change_image
 from tools.Weather_Info import get_weather
 from tools.Calculator import calculate
+from tools.Response_Analyzer import analyze_response
 
 # Application constants
 VERSION_INFO = "0.3.1"
@@ -34,13 +35,14 @@ DEFAULT_TOOLS = [
     list_images,
     change_image,
     get_weather,
-    calculate
+    calculate,
+    analyze_response
 ]
 AGENT = AGENT_REBECCA
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -350,7 +352,7 @@ class Interface:
 
     def format_cli_output(self, text: str, width: int = 120) -> str:
         """
-        Formats text for CLI display with proper wrapping and indentation.
+        Formats text for CLI display with proper wrapping, indentation, and highlighting.
         
         Args:
             text: Text to format
@@ -360,7 +362,10 @@ class Interface:
             str: Formatted text
         """
         import textwrap
-
+        
+        # Check for self-correction indicator
+        is_correction = "(Self-correction:" in text
+        
         # Extract agent name prefix if present
         agent_prefix = ""
         if text.startswith(f"{self.agent.first_name}>:"):
@@ -385,9 +390,16 @@ class Interface:
             # Process remaining lines
             for line in lines:
                 if line.strip():  # Skip empty lines
-                    wrapped = textwrap.fill(line, width=width, initial_indent="    ", 
-                                        subsequent_indent="    ")
-                    wrapped_lines.append(wrapped)
+                    # Highlight self-correction notes
+                    if "(Self-correction:" in line:
+                        wrapped = textwrap.fill(line, width=width, initial_indent="    ", 
+                                            subsequent_indent="    ")
+                        # Use terminal color codes for highlighting (yellow text)
+                        wrapped_lines.append(f"\033[33m{wrapped}\033[0m")
+                    else:
+                        wrapped = textwrap.fill(line, width=width, initial_indent="    ", 
+                                            subsequent_indent="    ")
+                        wrapped_lines.append(wrapped)
                 else:
                     wrapped_lines.append("")  # Preserve empty lines
                     

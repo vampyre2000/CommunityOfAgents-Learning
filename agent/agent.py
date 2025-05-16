@@ -421,10 +421,15 @@ class Agent:
 
         # Handle case where no tool is used   
         if tool_response.get('tool_choice') == "None":
-            return self.handle_no_tool_response(user_input, tool_response)
+            agent_response_text = self.handle_no_tool_response(user_input, tool_response)
         else:
             # Handle case where a tool is used
-            return self.handle_tool_response(user_input, tool_response)
+            agent_response_text = self.handle_tool_response(user_input, tool_response)
+        
+        # Self-check the response
+        agent_response_text = self.self_check_response(user_input, agent_response_text)
+        
+        return agent_response_text
 
     
     def handle_no_tool_response(self, user_input: str, tool_response: dict) -> str:
@@ -469,6 +474,60 @@ class Agent:
         except Exception as e:
             logger.error(f"Error processing tool response: {str(e)}")
             return f"I'm sorry, I encountered an error: {str(e)}"
+            
+    def self_check_response(self, user_input: str, agent_response_text: str) -> str:
+        """
+        Self-checks the agent's response for correctness and makes improvements if needed.
+        
+        Args:
+            user_input: The user's message
+            agent_response_text: The agent's initial response
+            
+        Returns:
+            The potentially improved response
+        """
+        try:
+            # Strip the agent prefix if present
+            if agent_response_text.startswith(f"{self.first_name}>: "):
+                response_text = agent_response_text[len(f"{self.first_name}>: "):]
+            else:
+                response_text = agent_response_text
+            
+            # Prepare data for the analyzer
+            analysis_data = {
+                "user_question": user_input,
+                "agent_response": response_text,
+                "model": self.model
+            }
+            
+            # Import the analyzer function
+            from tools.Response_Analyzer import analyze_response
+            
+            # Get analysis
+            analysis_result = analyze_response(analysis_data)
+            logger.debug(f"Analysis result: {analysis_result}")
+            
+            # Check if we need to correct the response
+            if "is_correct" in analysis_result and analysis_result.get("is_correct") is False:
+                corrected_response = analysis_result.get("corrected_response")
+                issues = analysis_result.get("issues", [])
+                
+                # Format the final response with both original and correction
+                final_response = f"{self.first_name}>: {corrected_response}\n\n(Self-correction: I initially responded incorrectly and have updated my answer. Issues identified: {', '.join(issues)})"
+                
+                # Update conversation history with the corrected response
+                self.conversation_history.update_history(user_input, corrected_response)
+                self.update_system_prompt()
+                
+                return final_response
+            else:
+                # No correction needed
+                return agent_response_text
+                
+        except Exception as e:
+            logger.error(f"Error in self_check_response: {str(e)}")
+            # If anything goes wrong, return the original response
+            return agent_response_text
 
     def show_agent_details(self) -> str:
         """
