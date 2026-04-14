@@ -11,7 +11,7 @@ ffmpy==0.5.0
 filelock==3.18.0
 fsspec==2025.3.2
 gr==1.27.0
-gradio==5.23.3
+gradio==6.7.0
 gradio_client==1.8.0
 groovy==0.1.2
 h11==0.14.0
